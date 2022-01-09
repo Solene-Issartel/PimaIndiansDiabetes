@@ -1,0 +1,327 @@
+---
+title: "PimaIndiansDiabetes-TP"
+author: "Solène Issartel"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+# TP Noté: Pima Indians Diabetes
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache=TRUE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(fig.align='center')
+knitr::opts_chunk$set(fig.width=5)
+knitr::opts_chunk$set(fig.height=3)
+set.seed(399L)
+```
+
+```{r lib}
+library(ggplot2)
+```
+
+## Problématique
+
+## 1- Question 
+
+Peut-on modéliser la présence/absence du diabètes (variable `diabetes`) chez des femmes Amérindiennes de la tribu Pima en fonction de différentes mesures physiologiques et médicales ?
+
+## 2- Objectif
+L’objectif de ce TP est de modéliser voire prédire la présence/absence du diabètes en fonction de différentes mesures physiologiques et médicales qui sont :
+
+* `pregnant`: Nombre de fois enceinte
+* `glucose`: La concentration de glucose dans le plasma (test de tolérance au glucose)
+* `pressure`: Pression sanguine diastolique (mm Hg)
+* `triceps`: Epaisseur du pli cutané du triceps (mm)
+* `insulin`: Insuline sérique à 2 heures (mu U/ml)
+* `mass`: Indice de masse corporelle (poids en kg/(taille en m)\^2)
+* `pedigree`: Fonction du pedigree du diabète
+* `age`: Age (années)
+
+La variable sur laquelle se baser est la variable `diabetes`, qui est binaire :
+
+* égale à 0 si la personne n’est pas atteinte du diabéte 
+
+* égale à 1 si la personne est diabétique 
+
+Pour répondre à la problématique, il faut trouver une régression adaptée qui permettra de construire un modèle et déterminer quelles variables ont un effet sur la présence/absence du diabéte.
+
+## Analyse des données
+
+```{r q0}
+pima <- read.csv("https://plmlab.math.cnrs.fr/gdurif_teaching/polytech_ig5_regression_tutorial/raw/master/data/PimaIndiansDiabetes.csv", sep = ";", header=TRUE)
+
+head(pima)
+str(pima)
+
+# effectif des groupes (important pour vérifier si les groupes sont équilibrés)
+table(pima$diabetes)
+
+ggplot(pima) + geom_bar(aes(as.factor(diabetes))) + xlab("diabetes") + theme_bw()
+```
+
+**Remarque** : On peut voir que l'échantillon des femmes Amérindiennes de la tribu Pima contient des effectifs très déséquilibrés. En effet, on remarque que les personnes non diabétiques sont deux fois plus présentes que les personnes diabétiques. 
+Pour que cela n’est pas d’impacts, il faut utiliser des probabilités. Cela est directement mis en place par la fonction glm.
+
+## Régression linéaire
+
+Pour répondre à la problématique, nous pouvons tester d'utiliser un modèle de régression linéaire pour voir s'il est adapté.
+
+```{r q1}
+# modèle de régression linéaire
+lin_reg <- lm(diabetes ~ ., data = pima)
+# R2
+summary(lin_reg)$r.squared
+plot(lin_reg, which=1)
+# resultat
+summary(lin_reg)
+# réponse : valeurs prédites vs valeurs observées
+plot(pima$diabetes, predict(lin_reg), xlab = "observed value", 
+     ylab = "predicted value")
+
+```
+
+**Résultat** : La régression linéaire n'est pas adaptée car la réponse n'est pas continue. En effet, on peut voir qu'elle prend ses valeurs seulement dans ${0,1}$.
+
+## Régression logistique
+
+```{r q2}
+# modèle de régression logistique
+log_reg <- glm(diabetes ~ ., data = pima, family="binomial")
+coef(log_reg)
+#Résultats plus détaillés
+summary(log_reg)
+```
+
+**Résultat** :
+
+* `Deviance Residuals`: Ici on remarque que la médiane est proche de 0 (ici `-0.4159`), ce qui signifie que le modèle est assez efficace.
+
+* `Coefficients`: Le résultat montre que les variables `Triceps`, `Insulin` et `Age` ne sont pas statistiquement significatives. En d'autres termes, les autres variables (`pregnant`, `glucose`, `pressure`, `mass`) ont un effet sur la présence ou non du diabète.
+
+* `Null deviance`: 
+
+**Rappel** : Plus la `Null deviance` est faible, plus le modèle nul explique bien la réponse et les prédicteurs n'apportent pas d'information supplémentaires pour expliquer la réponse. 
+
+**Remarque** : On peut voir que la `Null deviance` est de *993.48 à 767 degrés de liberté*, ce qui est très élevé. On peut donc dire que le modèle nul n’explique pas très bien la réponse et les prédicteurs apportent des informations supplémentaires pour expliquer la réponse.
+
+* `Residual Deviance`: 
+
+**Rappel** : Plus la `Residuals deviance` est faible, plus le modèle proposé explique bien la réponse et les prédicteurs sont utiles pour mieux expliquer la réponse. 
+
+**Remarque** : On peut voir qu’en incluant les variables indépendantes, la déviance diminue et passe à *723.45 pour 759 degrés de liberté*, ce qui correspond à un diminution de *27%* par rapport à la déviance nulle, pour une perte de *8* degrés de liberté. Cela prouve que le modèle a bien été ajusté et que les prédicteurs sont utiles pour expliquer la variable réponse.
+
+## Prédiction
+
+Valeurs prédites $\hat{y}_i$ : 
+```{r q3}
+# probabilités ajustées
+hat_pi <- predict(log_reg, type="response")
+# valeurs ajustées (threshold 50%)
+hat_y <- as.integer(hat_pi > 0.5)
+```
+
+**Explications** : La variable `hat_pi` est une prédiction qui permet de donner des valeurs aux observation en fonction de l'absence/présence du diabéte. Cependant les valeur données sont continues et comprises entre [0,1]. Pour résoudre cela, la variable `hat_y` permet d'arrondir la valeur : si elle est inférieure à 0,5 elle sera considérée comme un 0, sinon comme un 1.
+
+## 1- Sélection Backward
+
+**Objectif** : Partir d’un modèle complet avec toutes les variables et essayer de les retirer une par une pour obtenir le meilleur modèle possible. Le critère AIC permettra de comparer ces modèles (on retire l'AIC le plus petit à chaque étape).
+
+```{r q4}
+back_sel <- step(log_reg, direction="backward")
+summary(back_sel)
+```
+
+**Résultat** : A la fin de l'opération, l'AIC est de `739,5` ce qui est mieux que le modèle avec toutes les variables. On sélectionne alors le modèle avec les variables : `pregnant`, `glucose`, `pressure`, `insulin`, `mass`, `pedigree` et `age`.
+
+## 2- Sélection Forward
+
+**Objectif** : Partir d’un modèle vide sans variables et essayer d'en ajouter une par une pour obtenir le meilleur modèle possible. Le critère AIC permettra de comparer ces modèles (on retient l'AIC le plus petit à chaque étape).
+
+```{r q5}
+# le modèle de base est le modèle nul (celui avec uniquement un intercept)
+log_reg0 <- glm(diabetes ~ 1, data = pima, family="binomial")
+# la régression forward part du modèle nul et l'enrichit
+forward_sel <- step(log_reg0, direction="forward", scope=list(lower=log_reg0,
+upper=~pregnant+glucose+pressure+triceps+insulin+mass+pedigree+age))
+```
+
+**Résultat** : A la fin de l'opération, l'AIC est de `739,5` comme pour la sélection Backward. Cela est dû au fait que la sélection Forward trouve les même variables pour son modèle.
+On sélectionne donc le même modèle avec les variables : `pregnant`, `glucose`, `pressure`, `insulin`, `mass`, `pedigree` et `age`.
+
+## 3- Matrice de confusion
+```{r q6a}
+# matrice de confusion avec la fonction `table`
+table(hat_y, pima$diabetes)
+```
+
+**Explications** : La matrice permet de mettre en évidence les données qui ont bien été classées. 
+On retrouve 445 observations qui sont classées comme non diabétiques et qui ne le sont réellement pas (vrais négatifs), 156 observations qui sont classées comme diabétiques et qui le sont vraiment (vrais positifs). Cependant, il y a 112 observations qui ont été classées comme diabétiques et qui ne le sont pas (faux positifs) et 55 observations ont été classées comme non diabétiques alors qu’elles le sont en réalité (faux négatifs).
+
+```{r q6b}
+# matrice de confusion (et plus) avec la fonction `caret::confusionMatrix`
+library(caret)
+confusionMatrix(data = as.factor(hat_y), 
+                reference = as.factor(pima$diabetes),
+                positive = "1")
+```
+
+```{r q6c}
+# taux d'erreur (taux de mals classés)
+# Objectif : plus proche de 0 possible
+sum(hat_y != pima$diabetes)/length(pima$diabetes)
+```
+
+```{r q6d}
+# accuracy = 1 - taux d'erreur
+# Objectif : plus proche de 1 possible
+sum(hat_y == pima$diabetes)/length(pima$diabetes)
+```
+
+**Remarque** : On peut voir que les deux métriques sont bonnes.
+
+```{r q6e}
+# sensibility (taux vrai positif)
+# Objectif : plus élevé possible
+# Ici représente : sur toutes les personnes prédites diabétiques, combien le sont-elles vraiment? 
+sum(hat_y == 1 & pima$diabetes == 1)/sum(pima$diabetes == 1)
+```
+
+```{r q6f}
+# taux faux négatifs (aussi égal à 1 - sensibility)
+# Ici représente : le nombre de personnes diabétiques considérées comme des personnes non diabétiques sur le nombre réel de personnes diabétiques.
+sum(hat_y == 0 & pima$diabetes == 1)/sum(pima$diabetes == 1)
+```
+
+**Remarque** : Ces deux indicateurs sont très importants. Tout d'abord la Sensibilité car elle permet de déterminer les personnes réellement diabétiques. Ensuite pour ce qui est du taux de faux négatifs, l'objectif serait d'avoir un taux très faible, ce qui permettrait que la majorité des personnes considérées comme diabétiques le soient vraiment. Cependant on peut voir que les deux indicateurs ne sont pas très bons (Sensibility = 58% ce qui est un peu faible et un taux de faux négatifs = 42% ce qui est un peu élevé).
+
+```{r q6g}
+# specificity (taux vrais négatifs)
+# Ici représente : sur toutes les personnes prédites non diabétiques, combien le sont-elles vraiment? 
+sum(hat_y == 0 & pima$diabetes == 0)/sum(pima$diabetes == 0)
+```
+
+```{r q6h}
+# taux faux positifs (aussi égale à 1 - specificity)
+# Ici représente : le nombre de personnes non diabétiques considérées comme des personnes diabétiques sur le nombre réel de personnes non diabétiques.
+sum(hat_y == 1 & pima$diabetes == 0)/sum(pima$diabetes == 0)
+```
+
+**Remarque** : On remarque que la Spécificité est très bonne (presque 90%), on peut donc dire que notre modèle prédit bien les personnes non diabétiques qui ne le sont rééllement pas. Le taux de faux positifs est très faible (environ 10%), ce qui est important car cela signifie que les personnes non diabétiques son rarement prédites de diabétiques. 
+
+## Apprentissage
+
+On va maintenant décomposer les données en deux échantillons :
+
+* un **échantillon d'apprentissage**, utilisé pour apprendre le modèle (correspond à **70%** des données);
+
+* un **échantillon de test**, pour tester les performances en prédiction du modèle (correspond à **30%** des données).
+
+
+```{r q7}
+# taille échantillon
+n <- nrow(pima)
+# indices des individus dans l'échantillon d'apprentissage
+train_index <- sample(x = 1:n, size = round(0.7 * n), replace = FALSE)
+# train et test sets
+train_data <- pima[train_index,]
+test_data <- pima[-train_index,]
+```
+
+## Données d'apprentissage
+Une fois les données séparées, on réalise une régression logistique sur les données d’apprentissage puis on met en place une sélection backward.
+
+```{r q8}
+# training du modèle
+log_reg <- glm(diabetes ~ ., data = train_data, family="binomial")
+# sélection de modèle
+log_reg <- step(log_reg, direction="backward")
+```
+
+## Données de test
+
+Une fois le modèle déterminé, on peut effectuer les prédiction sur l'échantillon de test.
+
+```{r q9}
+# prediction (sur l'échantillon de test)
+hat_pi <- predict(log_reg, newdata = test_data, type = "response")
+hat_y <- as.integer(hat_pi > 0.5)
+```
+
+## Matrice de confusion
+```{r q10}
+# matrice de confusion avec la fonction `table`
+table(hat_y, test_data$diabetes)
+# matrice de confusion (et plus) avec la fonction `caret::confusionMatrix`
+library(caret)
+confusionMatrix(data = as.factor(hat_y), 
+                reference = as.factor(test_data$diabetes),
+                positive = "1")
+```
+
+**Remarque** : On remarque que la matrice de confusion est assez similaire à celle réalisée auparavant. En effet, on retrouve une bonne Précision (77%), un très bonne Spécificité (presque 90%), mais une Sensibilité faible (seulement 53%). 
+
+## Sensibilité et spécificité
+Définition de 2 functions permettant de calculer la sensibilité et la spécificité en fonction du seuil de décision utiliser pour prédire $\hat y$ à l'aide de $\hat\pi$, i.e. $\hat y = I_{\{\hat\pi > c\}}$ pour un seuil $c\in[0;1]$:
+```{r q11a}
+# fonction sensiblity en fonction du seuil
+sensibility <- function(threshold, hat_pi, df) {
+    out <- sum(as.integer(hat_pi > threshold) == 1 & 
+                   df$diabetes == 1)/sum(df$diabetes == 1)
+    return(out)
+}
+specificity <- function(threshold, hat_pi, df) {
+    out <- sum(as.integer(hat_pi > threshold) == 0 & 
+                   df$diabetes == 0)/sum(df$diabetes == 0)
+    return(out)
+}
+```
+
+Valeurs possibles pour le seuil (comprises entre 0 et 1):
+```{r q11b}
+threshold <- seq(0, 1, 0.001)
+```
+
+Calcul de la sensibilité et de la spécificité en fonction des valeurs possibles pour le seuil:
+```{r q11c}
+library(ggplot2)
+sens <- sapply(threshold, sensibility, hat_pi = hat_pi, df = test_data)
+spec <- sapply(threshold, specificity, hat_pi = hat_pi, df = test_data)
+# sensibility et specificity en fonction du threshold
+data2plot <- data.frame(threshold=rep(threshold,2), 
+                        value=c(sens, spec),
+                        tag=rep(c("sensitivity", "specificity"), 
+                                each = length(threshold)))
+ggplot(data2plot, aes(x=threshold, y=value)) + 
+  geom_line(aes(col=tag)) + 
+  theme_bw() + theme(legend.title = element_blank())
+```
+
+## Courbe ROC et AUC
+Courbe ROC (`sensibility` en fonction de `1 - specificity`):
+```{r q12}
+# courbe roc et auc
+data2plot <- data.frame(threshold=threshold, 
+                        sensitivity=sens, 
+                        specificity=spec)
+ggplot(data2plot, aes(x=1 - specificity, y=sensitivity)) + geom_line() + theme_bw()
+```
+
+**Rappel** : L'AUC est définit comme l'aire sous la courbe ROC. Plus sa valeur est proche de 1, plus le modèle est bien choisit.
+
+```{r q13}
+# auc = area under roc curve
+ggplot(data2plot, aes(x=1 - specificity, y=sensitivity)) + geom_line() + 
+  geom_area(fill="red", alpha=0.2, position = 'identity') + theme_bw()
+# auc
+library(pROC)
+auc(test_data$diabetes, hat_pi)
+```
+
+## Conclusion
+On a trouvé un bon modèle pour prédire l'absence/présence du diabète chez les femmes Amérindiennes de la tribu de Pima. En effet, l'accuracy et L'AUC sont tous les deux proches de 1. 
+
+Cependant, on aurait préféré avoir plus de données concernant les personnes atteintes du diabéte (`diabetes = 1`) pour que notre modèle puisse mieux prédire les personnes atteintes. Cela aurait aussi amélioré notre échantillon de test pour qu'il soit plus grand et plus diversifié pour pouvoir avoir plus de significativité statistique dans la matrice de confusion et donc dans nos prédictions.
+

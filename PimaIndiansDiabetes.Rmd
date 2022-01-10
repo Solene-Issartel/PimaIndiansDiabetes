@@ -13,8 +13,6 @@ knitr::opts_chunk$set(cache=TRUE)
 knitr::opts_chunk$set(message = FALSE)
 knitr::opts_chunk$set(warning = FALSE)
 knitr::opts_chunk$set(fig.align='center')
-knitr::opts_chunk$set(fig.width=5)
-knitr::opts_chunk$set(fig.height=3)
 set.seed(399L)
 ```
 
@@ -50,7 +48,7 @@ Pour répondre à la problématique, il faut trouver une régression adaptée qu
 
 ## Analyse des données
 
-```{r q0}
+```{r q0a}
 pima <- read.csv("https://plmlab.math.cnrs.fr/gdurif_teaching/polytech_ig5_regression_tutorial/raw/master/data/PimaIndiansDiabetes.csv", sep = ";", header=TRUE)
 
 head(pima)
@@ -63,7 +61,42 @@ ggplot(pima) + geom_bar(aes(as.factor(diabetes))) + xlab("diabetes") + theme_bw(
 ```
 
 **Remarque** : On peut voir que l'échantillon des femmes Amérindiennes de la tribu Pima contient des effectifs très déséquilibrés. En effet, on remarque que les personnes non diabétiques sont deux fois plus présentes que les personnes diabétiques. 
-Pour que cela n’est pas d’impacts, il faut utiliser des probabilités. Cela est directement mis en place par la fonction glm.
+Pour que cela n’est pas d’impacts, il faut utiliser des probabilités. Cela est directement mis en place par la fonction `glm`.
+
+## Matrice de corrélation
+
+```{r q0b}
+correlation <- cor(pima)
+correlation
+
+#Traçage de la matrice de correlation
+library(ggcorrplot)
+ggcorrplot(correlation,outline.col = NA, lab = TRUE, colors = c("#2980b9","white","#e74c3c"))
+```
+
+*Explications* : On peut voir qu'il n'y a pas beaucoup de correlations entre les variables. 
+
+Concernant les correlations négatives elles sont toutes très proches de 1, ce qui ne nous permet pas de faire d'analyses.
+
+On peut cependant voir qu'une relation existe entre la variables `diabetes` qui nous intéresse et les variables :
+
+* `diabetes` et `glucose` : 0.47
+* `diabetes` et `mass` : 0.29
+* `diabetes` et `age` : 0.24
+* `diabetes` et `pregnant` : 0.22
+
+Cela signifie par exemple qu'une femme ayant une forte concentration de glucose dans le plasma a plus de chance d'être diabétique. De même, pour les autres relations entre les autres variables.
+
+On peut aussi voir de fortes relations entre les variables, comme entre:
+
+* `age` et `pregnant` : 0.54
+* `triceps` et `insulin` : 0.44
+* `triceps` et `mass` : 0.39
+* `glucose` et `insulin` : 0.33
+* `pressure` et `mass` : 0.28
+* `glucose` et `age` : 0.26
+
+Ces valeurs indiquent une relation positive entre les différentes variables citées. On retrouve par exemple le fait que plus la personne a été enceinte, plus elle est agée.  
 
 ## Régression linéaire
 
@@ -321,7 +354,14 @@ auc(test_data$diabetes, hat_pi)
 ```
 
 ## Conclusion
-On a trouvé un bon modèle pour prédire l'absence/présence du diabète chez les femmes Amérindiennes de la tribu de Pima. En effet, l'accuracy et L'AUC sont tous les deux proches de 1. 
 
-Cependant, on aurait préféré avoir plus de données concernant les personnes atteintes du diabéte (`diabetes = 1`) pour que notre modèle puisse mieux prédire les personnes atteintes. Cela aurait aussi amélioré notre échantillon de test pour qu'il soit plus grand et plus diversifié pour pouvoir avoir plus de significativité statistique dans la matrice de confusion et donc dans nos prédictions.
+On a trouvé un bon modèle pour prédire l'absence/présence du diabète chez les femmes Amérindiennes de la tribu de Pima. Le modèle sélectionné ne retire que la variable `triceps`. 
+
+De plus, on remarque que l'accuracy et L'AUC sont tous les deux proches de 1, ce qui est un bon indicateur d'un modèle efficace. 
+
+**Points négatifs** : On aurait préféré avoir plus de données concernant les personnes atteintes du diabéte (`diabetes = 1`). 
+
+Dans un premier temps pour avoir plus d'équilibre sur les effectifs diabétiques/non diabétiques dans l'échantillon donné. 
+
+Dans un second temps, pour que notre modèle puisse mieux prédire les personnes atteintes. Cela aurait aussi amélioré notre échantillon de test pour qu'il soit plus grand et plus diversifié, ce qui aurait permit d'avoir plus de significativité statistique dans la matrice de confusion et donc dans nos prédictions.
 

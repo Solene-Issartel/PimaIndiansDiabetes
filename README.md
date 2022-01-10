@@ -19,4 +19,4 @@ pima <- read.table("PimaIndiansDiabetes.csv", sep = ";", header=TRUE)
 
 ## Formats disponibles
 
-Le compte rendu est disponible en **R Markdown**, en **HTML** et en  **PDF**.
+Le compte rendu est disponible en **R Markdown**, en **HTML** et en  **PDF**. Cependant, je conseille la lecture sur le document **HTML** qui est mieux structuré.
